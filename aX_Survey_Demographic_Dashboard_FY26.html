@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aXcelerate FY26 Survey — Demographic Breakdown Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F5F3;color:#1a1a18;padding:1.5rem;}
+h1{font-size:20px;font-weight:500;margin-bottom:4px;}
+.subtitle{font-size:13px;color:#5F5E5A;margin-bottom:1.5rem;}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;}
+.filter-btn{padding:7px 16px;border-radius:20px;border:0.5px solid #B4B2A9;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#1a1a18;transition:all 0.15s;}
+.filter-btn.active{background:#04342C;color:#fff;border-color:#04342C;}
+.filter-btn:hover:not(.active){background:#F1EFE8;}
+.cards-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:1.5rem;}
+.group-card{background:#fff;border:0.5px solid #D3D1C7;border-radius:12px;padding:1rem 1.1rem;cursor:pointer;transition:border-color 0.15s;}
+.group-card.selected{border:1.5px solid #04342C;}
+.group-name{font-size:12px;color:#5F5E5A;margin-bottom:4px;}
+.group-score{font-size:26px;font-weight:500;}
+.group-n{font-size:11px;color:#888780;margin-top:2px;}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;margin-top:6px;}
+.badge-green{background:#E1F5EE;color:#0F6E56;}
+.badge-amber{background:#FAEEDA;color:#854F0B;}
+.badge-red{background:#FCEBEB;color:#A32D2D;}
+.small-warn{font-size:10px;color:#854F0B;display:block;margin-top:3px;}
+.chart-section{background:#fff;border:0.5px solid #D3D1C7;border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;}
+.section-title{font-size:14px;font-weight:500;margin-bottom:12px;}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:1.5rem;}
+.insight-card{background:#fff;border:0.5px solid #D3D1C7;border-radius:10px;padding:0.9rem 1rem;}
+.insight-label{font-size:11px;color:#5F5E5A;margin-bottom:4px;}
+.insight-val{font-size:14px;font-weight:500;color:#1a1a18;line-height:1.4;}
+.insight-sub{font-size:11px;color:#888780;margin-top:2px;}
+.target-line-legend{display:flex;align-items:center;gap:6px;font-size:12px;color:#5F5E5A;margin-bottom:10px;}
+.legend-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#5F5E5A;}
+.legend-sq{width:12px;height:10px;border-radius:2px;}
+.caveat{font-size:12px;color:#888780;margin-top:1rem;}
+.footer{font-size:11px;color:#888780;margin-top:2rem;padding-top:1rem;border-top:0.5px solid #D3D1C7;}
+</style>
+</head>
+<body>
+
+<h1>aXcelerate FY26 Organisational Survey — Demographic Breakdown</h1>
+<div class="subtitle">Select a demographic to explore satisfaction scores and area breakdowns by group. n=60 valid respondents (rq_flag=0).</div>
+
+<div class="filter-row" id="filter-row"></div>
+
+<div class="cards-row" id="cards-row"></div>
+
+<div class="insight-grid" id="insight-grid"></div>
+
+<div class="chart-section">
+  <div class="section-title" id="chart-title">Area scores by group</div>
+  <div class="target-line-legend"><div style="width:14px;height:2px;background:#993C1D;border-radius:1px;"></div><span>80% target</span></div>
+  <div class="legend-row" id="legend-row"></div>
+  <div style="position:relative; width:100%; height:420px;">
+    <canvas id="areaChart" role="img" aria-label="Grouped bar chart showing key area scores by demographic group"></canvas>
+  </div>
+</div>
+
+<div class="caveat">Groups with n&lt;10 should be interpreted with caution due to small sample size. Remote worker group (n=9) scores are indicative only.</div>
+<div class="footer">Draft prepared with AI assistance: requires review before distribution. | aXcelerate FY26 Organisational Survey</div>
+
+<script>
+const DATA = {"Department":[{"group":"Engineering","sat":100.0,"n":17,"areas":{"Team Incl. & Belonging":91.2,"Career Development":88.2,"Purpose & Vision":83.0,"Working Environment":91.8,"Customers & Product":83.8,"Senior Mgmt Team":88.2,"Culture":83.2}},{"group":"S.C.R.A.M","sat":85.7,"n":7,"areas":{"Team Incl. & Belonging":85.7,"Career Development":71.4,"Purpose & Vision":68.2,"Working Environment":74.3,"Customers & Product":67.8,"Senior Mgmt Team":75.0,"Culture":77.5}},{"group":"Support","sat":75.0,"n":12,"areas":{"Team Incl. & Belonging":73.6,"Career Development":62.5,"Purpose & Vision":65.7,"Working Environment":73.3,"Customers & Product":85.4,"Senior Mgmt Team":68.8,"Culture":61.9}},{"group":"Product/Design","sat":66.7,"n":9,"areas":{"Team Incl. & Belonging":74.1,"Career Development":61.1,"Purpose & Vision":64.2,"Working Environment":77.8,"Customers & Product":77.8,"Senior Mgmt Team":50.0,"Culture":57.2}},{"group":"Professional Services","sat":81.8,"n":11,"areas":{"Team Incl. & Belonging":84.8,"Career Development":69.3,"Purpose & Vision":73.7,"Working Environment":85.4,"Customers & Product":75.0,"Senior Mgmt Team":68.1,"Culture":81.8}},{"group":"HS/Finance/Corp Services","sat":100.0,"n":4,"areas":{"Team Incl. & Belonging":91.7,"Career Development":71.9,"Purpose & Vision":86.1,"Working Environment":80.0,"Customers & Product":93.8,"Senior Mgmt Team":81.2,"Culture":78.6}}],"Tenure":[{"group":"< 1 year","sat":100.0,"n":15,"areas":{"Team Incl. & Belonging":86.6,"Career Development":80.8,"Purpose & Vision":80.7,"Working Environment":84.0,"Customers & Product":80.0,"Senior Mgmt Team":81.7,"Culture":82.9}},{"group":"1\u20135 years","sat":75.0,"n":32,"areas":{"Team Incl. & Belonging":78.7,"Career Development":67.2,"Purpose & Vision":67.7,"Working Environment":76.9,"Customers & Product":79.7,"Senior Mgmt Team":63.3,"Culture":66.5}},{"group":"5+ years","sat":92.3,"n":13,"areas":{"Team Incl. & Belonging":91.0,"Career Development":75.9,"Purpose & Vision":79.5,"Working Environment":92.3,"Customers & Product":82.7,"Senior Mgmt Team":86.5,"Culture":81.3}}],"Age":[{"group":"Under 30","sat":81.2,"n":16,"areas":{"Team Incl. & Belonging":79.2,"Career Development":68.7,"Purpose & Vision":70.8,"Working Environment":81.2,"Customers & Product":87.5,"Senior Mgmt Team":62.5,"Culture":65.2}},{"group":"30\u201345","sat":82.9,"n":35,"areas":{"Team Incl. & Belonging":84.7,"Career Development":73.9,"Purpose & Vision":72.7,"Working Environment":82.3,"Customers & Product":76.4,"Senior Mgmt Team":72.9,"Culture":75.9}},{"group":"45+","sat":100.0,"n":9,"areas":{"Team Incl. & Belonging":85.2,"Career Development":73.6,"Purpose & Vision":81.5,"Working Environment":82.2,"Customers & Product":83.4,"Senior Mgmt Team":91.7,"Culture":81.0}}],"Work location":[{"group":"Remote","sat":100.0,"n":9,"areas":{"Team Incl. & Belonging":96.3,"Career Development":87.5,"Purpose & Vision":87.7,"Working Environment":88.9,"Customers & Product":97.2,"Senior Mgmt Team":91.7,"Culture":93.7}},{"group":"Office-based","sat":82.4,"n":51,"areas":{"Team Incl. & Belonging":81.0,"Career Development":69.9,"Purpose & Vision":71.0,"Working Environment":80.8,"Customers & Product":77.5,"Senior Mgmt Team":69.6,"Culture":70.3}}],"Job role":[{"group":"Individual contributor","sat":84.6,"n":52,"areas":{"Team Incl. & Belonging":84.3,"Career Development":72.1,"Purpose & Vision":71.6,"Working Environment":83.1,"Customers & Product":79.8,"Senior Mgmt Team":70.7,"Culture":72.5}},{"group":"People leader","sat":87.5,"n":8,"areas":{"Team Incl. & Belonging":77.1,"Career Development":75.0,"Purpose & Vision":86.1,"Working Environment":75.0,"Customers & Product":84.4,"Senior Mgmt Team":87.5,"Culture":82.1}}]};
+
+const COLORS = ['#1D9E75','#534AB7','#D85A30','#185FA5','#BA7517','#3B6D11','#993556'];
+const AREAS = ['Team Incl. & Belonging','Career Development','Purpose & Vision','Working Environment','Customers & Product','Senior Mgmt Team','Culture'];
+
+let currentDemo = 'Department';
+let chartInstance = null;
+
+function ragClass(score) {
+  if (score === null) return 'badge-amber';
+  return score >= 80 ? 'badge-green' : score >= 75 ? 'badge-amber' : 'badge-red';
+}
+function ragLabel(score) {
+  if (score === null) return '?';
+  return score >= 80 ? '✅ On target' : score >= 75 ? '⚠️ At risk' : '🔴 Below target';
+}
+function ragColor(score) {
+  if (score === null) return '#888780';
+  return score >= 80 ? '#0F6E56' : score >= 75 ? '#854F0B' : '#A32D2D';
+}
+
+function buildFilters() {
+  const row = document.getElementById('filter-row');
+  row.innerHTML = '';
+  Object.keys(DATA).forEach(demo => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (demo === currentDemo ? ' active' : '');
+    btn.textContent = demo;
+    btn.onclick = () => { currentDemo = demo; render(); };
+    row.appendChild(btn);
+  });
+}
+
+function buildCards() {
+  const row = document.getElementById('cards-row');
+  row.innerHTML = '';
+  DATA[currentDemo].forEach(grp => {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const small = grp.n < 10 ? '<span class="small-warn">⚠ small sample (n&lt;10)</span>' : '';
+    card.innerHTML = `
+      <div class="group-name">${grp.group}</div>
+      <div class="group-score" style="color:${ragColor(grp.sat)};">${grp.sat !== null ? grp.sat.toFixed(1) + '%' : 'n/a'}</div>
+      <div class="group-n">n=${grp.n}</div>
+      <span class="badge ${ragClass(grp.sat)}">${ragLabel(grp.sat)}</span>
+      ${small}
+    `;
+    row.appendChild(card);
+  });
+}
+
+function buildInsights() {
+  const grid = document.getElementById('insight-grid');
+  grid.innerHTML = '';
+  const groups = DATA[currentDemo];
+
+  // Biggest gap between groups
+  let biggestGap = { area: '', gap: 0, high: '', low: '' };
+  AREAS.forEach(area => {
+    const vals = groups.map(g => g.areas[area]).filter(v => v !== null);
+    if (vals.length < 2) return;
+    const gap = Math.max(...vals) - Math.min(...vals);
+    if (gap > biggestGap.gap) {
+      const maxGrp = groups.find(g => g.areas[area] === Math.max(...vals));
+      const minGrp = groups.find(g => g.areas[area] === Math.min(...vals));
+      biggestGap = { area, gap: gap.toFixed(1), high: maxGrp.group, low: minGrp.group };
+    }
+  });
+
+  // Highest individual score
+  let highestScore = { group: '', area: '', score: 0 };
+  groups.forEach(g => {
+    AREAS.forEach(a => {
+      if (g.areas[a] !== null && g.areas[a] > highestScore.score) {
+        highestScore = { group: g.group, area: a, score: g.areas[a] };
+      }
+    });
+  });
+
+  // Most consistent area (smallest spread)
+  let mostConsistent = { area: '', spread: 999 };
+  AREAS.forEach(area => {
+    const vals = groups.map(g => g.areas[area]).filter(v => v !== null);
+    if (vals.length < 2) return;
+    const spread = Math.max(...vals) - Math.min(...vals);
+    if (spread < mostConsistent.spread) mostConsistent = { area, spread: spread.toFixed(1) };
+  });
+
+  // Lowest group + area
+  let lowestScore = { group: '', area: '', score: 999 };
+  groups.forEach(g => {
+    AREAS.forEach(a => {
+      if (g.areas[a] !== null && g.areas[a] < lowestScore.score) {
+        lowestScore = { group: g.group, area: a, score: g.areas[a] };
+      }
+    });
+  });
+
+  const insights = [
+    { label: 'Biggest group gap', val: `${biggestGap.area}`, sub: `${biggestGap.gap}pp spread — ${biggestGap.high} vs ${biggestGap.low}` },
+    { label: 'Highest individual score', val: `${highestScore.score}%`, sub: `${highestScore.group} — ${highestScore.area}` },
+    { label: 'Most consistent area', val: mostConsistent.area, sub: `Only ${mostConsistent.spread}pp spread between groups` },
+    { label: 'Lowest scoring', val: `${lowestScore.score}%`, sub: `${lowestScore.group} — ${lowestScore.area}` },
+  ];
+
+  insights.forEach(ins => {
+    grid.innerHTML += `<div class="insight-card">
+      <div class="insight-label">${ins.label}</div>
+      <div class="insight-val">${ins.val}</div>
+      <div class="insight-sub">${ins.sub}</div>
+    </div>`;
+  });
+}
+
+function buildChart() {
+  document.getElementById('chart-title').textContent = `Area scores by ${currentDemo.toLowerCase()} group`;
+
+  const groups = DATA[currentDemo];
+  const datasets = groups.map((grp, i) => ({
+    label: `${grp.group} (n=${grp.n})`,
+    data: AREAS.map(a => grp.areas[a] ?? 0),
+    backgroundColor: COLORS[i % COLORS.length] + 'CC',
+    borderColor: COLORS[i % COLORS.length],
+    borderWidth: 1,
+  }));
+
+  // Legend
+  const legRow = document.getElementById('legend-row');
+  legRow.innerHTML = '';
+  groups.forEach((g, i) => {
+    legRow.innerHTML += `<span class="legend-item"><span class="legend-sq" style="background:${COLORS[i%COLORS.length]};"></span>${g.group} (n=${g.n})</span>`;
+  });
+
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('areaChart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: AREAS, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        annotation: {},
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 12 }, maxRotation: 30, autoSkip: false },
+          grid: { display: false }
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { callback: v => v + '%', font: { size: 11 } },
+          grid: { color: '#e8e6e0' }
+        }
+      }
+    },
+    plugins: [{
+      id: 'targetLine',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
+        const yPos = y.getPixelForValue(80);
+        ctx.save();
+        ctx.strokeStyle = '#993C1D';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(left, yPos);
+        ctx.lineTo(right, yPos);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function render() {
+  buildFilters();
+  buildCards();
+  buildInsights();
+  buildChart();
+}
+
+render();
+</script>
+</body>
+</html>
